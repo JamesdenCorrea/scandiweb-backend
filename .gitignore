@@ -1,1 +1,23 @@
+<<<<<<< HEAD
 /vendor/
+=======
+# === FRONTEND ===
+node_modules/
+dist/
+.vite/
+.env
+.env.*
+
+# === BACKEND ===
+vendor/
+*.log
+.env
+
+# === GENERAL ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+>>>>>>> b3d9d9f (Organized repo with backend and frontend folders)
