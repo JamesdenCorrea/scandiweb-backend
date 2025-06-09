@@ -6,18 +6,25 @@ use GraphQL\GraphQL as GraphQLBase;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Schema;
+use PDO;
 use RuntimeException;
 use Throwable;
-
-// 🔥 Include the config file to get $pdo
-require_once __DIR__ . '/../../config.php';
 
 class GraphQL
 {
     static public function handle()
     {
         try {
-            global $pdo; // 👈 use the $pdo from config.php
+            // Use Railway environment variables
+            $host = getenv('MYSQLHOST') ?: 'turntable.proxy.rlwy.net';
+            $port = getenv('MYSQLPORT') ?: '20562';
+            $dbname = getenv('MYSQLDATABASE') ?: 'railway';
+            $user = getenv('MYSQLUSER') ?: 'root';
+            $pass = getenv('MYSQLPASSWORD') ?: 'vAOGplewvNdAAAazCEZnIufRidogCBsR';
+            
+            // Create PDO connection with Railway credentials
+            $db = new PDO("mysql:host=$host;port=$port;dbname=$dbname", $user, $pass);
+            $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             $attributeType = new ObjectType([
                 'name' => 'Attribute',
@@ -49,8 +56,8 @@ class GraphQL
                 'fields' => [
                     'products' => [
                         'type' => Type::listOf($productType),
-                        'resolve' => function () use ($pdo) {
-                            $stmt = $pdo->query("
+                        'resolve' => function () use ($db) {
+                            $stmt = $db->query("
                                 SELECT 
                                     p.id, 
                                     p.sku, 
@@ -73,14 +80,14 @@ class GraphQL
                             ");
 
                             if (!$stmt) {
-                                throw new RuntimeException("Query failed: " . implode(" ", $pdo->errorInfo()));
+                                throw new RuntimeException("Query failed: " . implode(" ", $db->errorInfo()));
                             }
 
-                            $products = $stmt->fetchAll();
-
+                            $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             $finalProducts = [];
+
                             foreach ($products as $product) {
-                                $attrStmt = $pdo->prepare("
+                                $attrStmt = $db->prepare("
                                     SELECT 
                                         a.name AS name,
                                         ai.value AS value,
@@ -90,8 +97,9 @@ class GraphQL
                                     LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
                                     WHERE pa.product_id = ?
                                 ");
+
                                 $attrStmt->execute([$product['id']]);
-                                $attributes = $attrStmt->fetchAll();
+                                $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
 
                                 $finalProducts[] = [
                                     'id' => $product['id'],
@@ -112,9 +120,9 @@ class GraphQL
                     ],
                     'categories' => [
                         'type' => Type::listOf(Type::string()),
-                        'resolve' => function () use ($pdo) {
-                            $stmt = $pdo->query("SELECT name FROM categories");
-                            return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                        'resolve' => function () use ($db) {
+                            $stmt = $db->query("SELECT name FROM categories");
+                            return $stmt->fetchAll(PDO::FETCH_COLUMN);
                         }
                     ]
                 ],
@@ -130,13 +138,22 @@ class GraphQL
             }
 
             $input = json_decode($rawInput, true);
+
             if ($input === null) {
-                echo json_encode(['error' => ['message' => 'Invalid JSON input']]);
+                echo json_encode([
+                    'error' => [
+                        'message' => 'Invalid JSON input'
+                    ]
+                ]);
                 return;
             }
 
             if (!isset($input['query']) || !is_string($input['query'])) {
-                echo json_encode(['error' => ['message' => 'Missing or invalid GraphQL query.']]);
+                echo json_encode([
+                    'error' => [
+                        'message' => 'Missing or invalid GraphQL query.'
+                    ]
+                ]);
                 return;
             }
 
