@@ -1,0 +1,12 @@
+{
+    "name": "jamesdencorrea/scandiweb-backend",
+    "description": "Simple PHP backend for Scandiweb Full Stack test",
+    "autoload": {
+        "psr-4": {
+            "Jamesdencorrea\\ScandiwebBackend\\": "src/"
+        }
+    },
+    "require": {
+        "webonyx/graphql-php": "^15.20"
+    }
+}
