@@ -1,12 +1,12 @@
 <?php
 // config.php
 
-$host = getenv('MYSQLHOST') ?: 'localhost'; // fallback if env var missing
-$db   = getenv('MYSQLDATABASE');
-$user = getenv('MYSQLUSER');
-$pass = getenv('MYSQLPASSWORD');
+$host = getenv('MYSQLHOST') ?: 'turntable.proxy.rlwy.net';
+$port = getenv('MYSQLPORT') ?: '20562';
+$db   = getenv('MYSQLDATABASE') ?: 'railway';
+$user = getenv('MYSQLUSER') ?: 'root';
+$pass = getenv('MYSQLPASSWORD') ?: 'vAOGplewvNdAAAazCEZnIufRidogCBsR';
 $charset = 'utf8mb4';
-$port = getenv('MYSQLPORT') ?: 3306;
 
 $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
 
