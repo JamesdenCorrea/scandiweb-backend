@@ -15,7 +15,7 @@ class GraphQL
     static public function handle()
     {
         try {            // Use Railway environment variables
-            $host = getenv('MYSQL_HOST') ?: '${{MySQL.MYSQL_HOST}}';
+            $host = getenv('MYSQL_HOST') ?: 'turntable.proxy.rlwy.net';
             $port = getenv('MYSQLPORT') ?: '20562';
             $dbname = getenv('MYSQLDATABASE') ?: 'railway';
             $user = getenv('MYSQLUSER') ?: 'root';
