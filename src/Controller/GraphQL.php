@@ -14,8 +14,7 @@ class GraphQL
 {
     static public function handle()
     {
-        try {
-            // Use Railway environment variables
+        try {            // Use Railway environment variables
             $host = getenv('MYSQLHOST') ?: 'turntable.proxy.rlwy.net';
             $port = getenv('MYSQLPORT') ?: '20562';
             $dbname = getenv('MYSQLDATABASE') ?: 'railway';
@@ -24,6 +23,14 @@ class GraphQL
             
             // Create PDO connection with Railway credentials
             $db = new PDO("mysql:host=$host;port=$port;dbname=$dbname", $user, $pass);
+            // Use environment variables for database configuration
+            $host = trim(getenv('MYSQLHOST') ?: 'turntable.proxy.rlwy.net');
+            $port = trim(getenv('MYSQLPORT') ?: '20562');
+            $dbname = trim(getenv('MYSQLDATABASE') ?: 'railway');
+            $user = trim(getenv('MYSQLUSER') ?: 'root');
+            $password = trim(getenv('MYSQLPASSWORD') ?: '');
+            $dsn = "mysql:host=$host;port=$port;dbname=$dbname";
+            $db = new PDO($dsn, $user, $password);
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             $attributeType = new ObjectType([
