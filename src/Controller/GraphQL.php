@@ -15,7 +15,6 @@ class GraphQL
     static public function handle()
     {
         try {
-            // ✅ Railway DB connection
             $host = 'turntable.proxy.rlwy.net';
             $port = '20562';
             $dbname = 'railway';
@@ -26,7 +25,6 @@ class GraphQL
             $db = new PDO($dsn, $user, $pass);
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            // Attribute type
             $attributeType = new ObjectType([
                 'name' => 'Attribute',
                 'fields' => [
@@ -36,7 +34,6 @@ class GraphQL
                 ],
             ]);
 
-            // Product type
             $productType = new ObjectType([
                 'name' => 'Product',
                 'fields' => [
@@ -46,15 +43,15 @@ class GraphQL
                     'price' => ['type' => Type::float()],
                     'type' => ['type' => Type::string()],
                     'category' => ['type' => Type::string()],
-                    'brand' => ['type' => Type::string()], // ✅ brand included
+                    'brand' => ['type' => Type::string()],
                     'image_url' => ['type' => Type::string()],
                     'in_stock' => ['type' => Type::int()],
                     'description' => ['type' => Type::string()],
+                    'gallery' => ['type' => Type::listOf(Type::string())], // ✅ Added
                     'attributes' => ['type' => Type::listOf($attributeType)],
                 ],
             ]);
 
-            // Root query
             $queryType = new ObjectType([
                 'name' => 'Query',
                 'fields' => [
@@ -89,15 +86,10 @@ class GraphQL
                                 GROUP BY p.id
                             ");
 
-                            if (!$stmt) {
-                                throw new RuntimeException("Query failed: " . implode(" ", $db->errorInfo()));
-                            }
-
                             $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             $finalProducts = [];
 
                             foreach ($products as $product) {
-                                // Fetch attributes
                                 $attrStmt = $db->prepare("
                                     SELECT 
                                         a.name AS name,
@@ -111,6 +103,12 @@ class GraphQL
                                 $attrStmt->execute([$product['id']]);
                                 $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
 
+                                $galleryStmt = $db->prepare("
+                                    SELECT image_url FROM product_gallery WHERE product_id = ?
+                                ");
+                                $galleryStmt->execute([$product['id']]);
+                                $galleryImages = $galleryStmt->fetchAll(PDO::FETCH_COLUMN);
+
                                 $finalProducts[] = [
                                     'id' => $product['id'],
                                     'sku' => $product['sku'],
@@ -118,10 +116,11 @@ class GraphQL
                                     'price' => (float)$product['price'],
                                     'type' => $product['type'],
                                     'category' => $product['category'],
-                                    'brand' => $product['brand'] ?? '', // ✅ safe fallback
+                                    'brand' => $product['brand'] ?? '',
                                     'image_url' => $product['image_url'] ?? '',
                                     'in_stock' => (int)$product['in_stock'],
                                     'description' => $product['description'] ?? '',
+                                    'gallery' => $galleryImages ?: [],
                                     'attributes' => $attributes,
                                 ];
                             }
@@ -139,31 +138,19 @@ class GraphQL
                 ],
             ]);
 
-            $schema = new Schema([
-                'query' => $queryType,
-            ]);
+            $schema = new Schema(['query' => $queryType]);
 
             $rawInput = file_get_contents('php://input');
-            if ($rawInput === false) {
-                throw new RuntimeException('Failed to get php://input');
-            }
+            if ($rawInput === false) throw new RuntimeException('Failed to get php://input');
 
             $input = json_decode($rawInput, true);
             if ($input === null) {
-                echo json_encode([
-                    'error' => [
-                        'message' => 'Invalid JSON input'
-                    ]
-                ]);
+                echo json_encode(['error' => ['message' => 'Invalid JSON input']]);
                 return;
             }
 
             if (!isset($input['query']) || !is_string($input['query'])) {
-                echo json_encode([
-                    'error' => [
-                        'message' => 'Missing or invalid GraphQL query.'
-                    ]
-                ]);
+                echo json_encode(['error' => ['message' => 'Missing or invalid GraphQL query.']]);
                 return;
             }
 
