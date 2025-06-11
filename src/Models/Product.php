@@ -7,13 +7,15 @@ abstract class Product
     protected string $name;
     protected float $price;
     protected array $attributes = [];
+    protected ?string $brand = null; // ✅ Include brand
 
-    public function __construct(string $id, string $name, float $price, array $attributes = [])
+    public function __construct(string $id, string $name, float $price, array $attributes = [], ?string $brand = null)
     {
         $this->id = $id;
         $this->name = $name;
         $this->price = $price;
         $this->attributes = $attributes;
+        $this->brand = $brand; // ✅ Assign brand
     }
 
     abstract public function getType(): string;
@@ -36,5 +38,10 @@ abstract class Product
     public function getAttributes(): array
     {
         return $this->attributes;
+    }
+
+    public function getBrand(): ?string
+    {
+        return $this->brand;
     }
 }

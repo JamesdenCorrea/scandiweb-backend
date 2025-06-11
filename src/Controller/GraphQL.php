@@ -14,25 +14,19 @@ class GraphQL
 {
     static public function handle()
     {
-        try {            // Use Railway environment variables
-            $host = getenv('MYSQL_HOST') ?: 'turntable.proxy.rlwy.net';
-            $port = getenv('MYSQLPORT') ?: '20562';
-            $dbname = getenv('MYSQLDATABASE') ?: 'railway';
-            $user = getenv('MYSQLUSER') ?: 'root';
-            $pass = getenv('MYSQLPASSWORD') ?: 'vAOGplewvNdAAAazCEZnIufRidogCBsR';
-            
-            // Create PDO connection with Railway credentials
-            $db = new PDO("mysql:host=$host;port=$port;dbname=$dbname", $user, $pass);
-            // Use environment variables for database configuration
-            $host = trim(getenv('MYSQLHOST') ?: 'turntable.proxy.rlwy.net');
-            $port = trim(getenv('MYSQLPORT') ?: '20562');
-            $dbname = trim(getenv('MYSQLDATABASE') ?: 'railway');
-            $user = trim(getenv('MYSQLUSER') ?: 'root');
-            $password = trim(getenv('MYSQLPASSWORD') ?: '');
+        try {
+            // ✅ Railway DB connection
+            $host = 'turntable.proxy.rlwy.net';
+            $port = '20562';
+            $dbname = 'railway';
+            $user = 'root';
+            $pass = 'vAOGplewvNdAAAazCEZnIufRidogCBsR';
+
             $dsn = "mysql:host=$host;port=$port;dbname=$dbname";
-            $db = new PDO($dsn, $user, $password);
+            $db = new PDO($dsn, $user, $pass);
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+            // Attribute type
             $attributeType = new ObjectType([
                 'name' => 'Attribute',
                 'fields' => [
@@ -42,6 +36,7 @@ class GraphQL
                 ],
             ]);
 
+            // Product type
             $productType = new ObjectType([
                 'name' => 'Product',
                 'fields' => [
@@ -51,6 +46,7 @@ class GraphQL
                     'price' => ['type' => Type::float()],
                     'type' => ['type' => Type::string()],
                     'category' => ['type' => Type::string()],
+                    'brand' => ['type' => Type::string()], // ✅ brand included
                     'image_url' => ['type' => Type::string()],
                     'in_stock' => ['type' => Type::int()],
                     'description' => ['type' => Type::string()],
@@ -58,6 +54,7 @@ class GraphQL
                 ],
             ]);
 
+            // Root query
             $queryType = new ObjectType([
                 'name' => 'Query',
                 'fields' => [
@@ -72,12 +69,18 @@ class GraphQL
                                     pr.amount AS price,
                                     p.product_type AS type,
                                     c.name AS category,
+                                    b.name AS brand,
                                     p.in_stock,
                                     p.description,
-                                    (SELECT image_url FROM product_gallery 
-                                     WHERE product_id = p.id LIMIT 1) AS image_url
+                                    (
+                                        SELECT image_url 
+                                        FROM product_gallery 
+                                        WHERE product_id = p.id 
+                                        LIMIT 1
+                                    ) AS image_url
                                 FROM products p
                                 JOIN categories c ON p.category_id = c.id
+                                LEFT JOIN brands b ON p.brand_id = b.id
                                 LEFT JOIN (
                                     SELECT product_id, MAX(amount) AS amount 
                                     FROM prices 
@@ -94,6 +97,7 @@ class GraphQL
                             $finalProducts = [];
 
                             foreach ($products as $product) {
+                                // Fetch attributes
                                 $attrStmt = $db->prepare("
                                     SELECT 
                                         a.name AS name,
@@ -104,7 +108,6 @@ class GraphQL
                                     LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
                                     WHERE pa.product_id = ?
                                 ");
-
                                 $attrStmt->execute([$product['id']]);
                                 $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -115,6 +118,7 @@ class GraphQL
                                     'price' => (float)$product['price'],
                                     'type' => $product['type'],
                                     'category' => $product['category'],
+                                    'brand' => $product['brand'] ?? '', // ✅ safe fallback
                                     'image_url' => $product['image_url'] ?? '',
                                     'in_stock' => (int)$product['in_stock'],
                                     'description' => $product['description'] ?? '',
@@ -145,7 +149,6 @@ class GraphQL
             }
 
             $input = json_decode($rawInput, true);
-
             if ($input === null) {
                 echo json_encode([
                     'error' => [
