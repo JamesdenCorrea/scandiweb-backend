@@ -3,13 +3,15 @@
 
 // DB config - update these to your environment
 $host = 'turntable.proxy.rlwy.net';
+$port = 20562;
 $db = 'railway';
 $user = 'root';
 $pass = 'vAOGplewvNdAAAazCEZnIufRidogCBsR';
 $charset = 'utf8mb4';
 
+
 // PDO DSN and options
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
 $options = [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -71,15 +73,17 @@ function getIdByName(PDO $pdo, string $table, string $name): int {
 
 // Insert products
 $productStmt = $pdo->prepare("
-    INSERT INTO products (id, name, description, category_id, brand_id, in_stock)
-    VALUES (:id, :name, :description, :category_id, :brand_id, :in_stock)
+    INSERT INTO products (id, sku, name, description, category_id, brand_id, in_stock)
+    VALUES (:id, :sku, :name, :description, :category_id, :brand_id, :in_stock)
     ON DUPLICATE KEY UPDATE
+        sku = VALUES(sku),
         name = VALUES(name),
         description = VALUES(description),
         category_id = VALUES(category_id),
         brand_id = VALUES(brand_id),
         in_stock = VALUES(in_stock)
 ");
+
 
 foreach ($products as $product) {
     $categoryId = getIdByName($pdo, 'categories', $product['category']);
@@ -94,14 +98,17 @@ foreach ($products as $product) {
 
     $inStock = !empty($product['inStock']) ? 1 : 0;
 
-    $productStmt->execute([
-        'id' => $product['id'],
-        'name' => $product['name'],
-        'description' => $product['description'] ?? null,
-        'category_id' => $categoryId,
-        'brand_id' => $brandId,
-        'in_stock' => $inStock,
-    ]);
+$productStmt->execute([
+    'id' => $product['id'],
+    'sku' => $product['sku'] ?? 'SKU-' . $product['id'], // ✅ fallback value
+    'name' => $product['name'],
+    'description' => $product['description'] ?? null,
+    'category_id' => $categoryId,
+    'brand_id' => $brandId,
+    'in_stock' => $inStock,
+]);
+
+
 }
 
 // Insert product galleries
