@@ -50,6 +50,7 @@ class GraphQL
                     'description' => ['type' => Type::string()],
                     'gallery' => ['type' => Type::listOf(Type::string())],
                     'attributes' => ['type' => Type::listOf($attributeType)],
+                    'image' => ['type' => Type::string()], // ✅ ADD THIS LINE
                 ],
             ]);
 
@@ -110,20 +111,22 @@ class GraphQL
                                 $galleryStmt->execute([$product['id']]);
                                 $galleryImages = $galleryStmt->fetchAll(PDO::FETCH_COLUMN);
 
-                                $finalProducts[] = [
-                                    'id' => $product['id'],
-                                    'sku' => $product['sku'],
-                                    'name' => $product['name'],
-                                    'price' => (float)$product['price'],
-                                    'type' => $product['type'],
-                                    'category' => $product['category'],
-                                    'brand' => $product['brand'] ?? '',
-                                    'image_url' => $product['image_url'] ?? '',
-                                    'in_stock' => (int)$product['in_stock'],
-                                    'description' => $product['description'] ?? '',
-                                    'gallery' => $galleryImages ?: [],
-                                    'attributes' => $attributes,
-                                ];
+$finalProducts[] = [
+    'id' => $product['id'],
+    'sku' => $product['sku'],
+    'name' => $product['name'],
+    'price' => (float)$product['price'],
+    'type' => $product['type'],
+    'category' => $product['category'],
+    'brand' => $product['brand'] ?? '',
+    'image_url' => $product['image_url'] ?? '',
+    'image' => $galleryImages[0] ?? ($product['image_url'] ?? ''), // ✅ add this
+    'in_stock' => (int)$product['in_stock'],
+    'description' => $product['description'] ?? '',
+    'gallery' => $galleryImages ?: [],
+    'attributes' => $attributes,
+];
+
                             }
 
                             return $finalProducts;
