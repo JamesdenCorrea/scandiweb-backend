@@ -4,6 +4,7 @@ namespace Jamesdencorrea\ScandiwebBackend\Controller;
 
 use GraphQL\GraphQL as GraphQLBase;
 use GraphQL\Type\Definition\ObjectType;
+use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\Type;
 use GraphQL\Type\Schema;
 use PDO;
@@ -47,7 +48,7 @@ class GraphQL
                     'image_url' => ['type' => Type::string()],
                     'in_stock' => ['type' => Type::int()],
                     'description' => ['type' => Type::string()],
-                    'gallery' => ['type' => Type::listOf(Type::string())], // ✅ Added
+                    'gallery' => ['type' => Type::listOf(Type::string())],
                     'attributes' => ['type' => Type::listOf($attributeType)],
                 ],
             ]);
@@ -138,7 +139,65 @@ class GraphQL
                 ],
             ]);
 
-            $schema = new Schema(['query' => $queryType]);
+            // 🔧 Mutation types
+            $orderItemInputType = new InputObjectType([
+                'name' => 'OrderItemInput',
+                'fields' => [
+                    'productId' => ['type' => Type::nonNull(Type::string())],
+                    'quantity' => ['type' => Type::nonNull(Type::int())],
+                ],
+            ]);
+
+            $orderInputType = new InputObjectType([
+                'name' => 'OrderInput',
+                'fields' => [
+                    'items' => ['type' => Type::nonNull(Type::listOf($orderItemInputType))],
+                    'total' => ['type' => Type::nonNull(Type::float())],
+                ],
+            ]);
+
+            $orderType = new ObjectType([
+                'name' => 'Order',
+                'fields' => [
+                    'id' => ['type' => Type::string()],
+                    'total' => ['type' => Type::float()],
+                    'items' => [
+                        'type' => Type::listOf(new ObjectType([
+                            'name' => 'OrderItem',
+                            'fields' => [
+                                'productId' => ['type' => Type::string()],
+                                'quantity' => ['type' => Type::int()],
+                            ],
+                        ])),
+                    ],
+                ],
+            ]);
+
+            $mutationType = new ObjectType([
+                'name' => 'Mutation',
+                'fields' => [
+                    'createOrder' => [
+                        'type' => $orderType,
+                        'args' => [
+                            'input' => ['type' => Type::nonNull($orderInputType)],
+                        ],
+                        'resolve' => function ($root, $args) {
+                            $input = $args['input'];
+                            return [
+                                'id' => uniqid('order_'),
+                                'total' => $input['total'],
+                                'items' => $input['items'],
+                            ];
+                        },
+                    ],
+                ],
+            ]);
+
+            // 🧠 Schema with both Query and Mutation
+            $schema = new Schema([
+                'query' => $queryType,
+                'mutation' => $mutationType,
+            ]);
 
             $rawInput = file_get_contents('php://input');
             if ($rawInput === false) throw new RuntimeException('Failed to get php://input');
