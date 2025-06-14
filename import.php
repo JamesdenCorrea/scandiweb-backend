@@ -96,7 +96,8 @@ foreach ($products as $product) {
         die("Brand '{$product['brand']}' not found for product ID {$product['id']}");
     }
 
-    $inStock = !empty($product['inStock']) ? 1 : 0;
+    $inStock = isset($product['inStock']) && $product['inStock'] ? 1 : 0;
+
 
 $productStmt->execute([
     'id' => $product['id'],
@@ -118,6 +119,11 @@ $galleryStmt = $pdo->prepare("
 ");
 
 foreach ($products as $product) {
+    // ✅ Clear old gallery images for this product
+    $deleteGalleryStmt = $pdo->prepare("DELETE FROM product_gallery WHERE product_id = :product_id");
+    $deleteGalleryStmt->execute(['product_id' => $product['id']]);
+
+    // ✅ Insert new gallery images
     if (!empty($product['gallery']) && is_array($product['gallery'])) {
         foreach ($product['gallery'] as $imageUrl) {
             $galleryStmt->execute([
@@ -127,6 +133,7 @@ foreach ($products as $product) {
         }
     }
 }
+
 
 // Insert attributes and attribute items
 $attributeStmt = $pdo->prepare("
