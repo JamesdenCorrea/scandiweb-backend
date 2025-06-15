@@ -26,14 +26,16 @@ class GraphQL
             $db = new PDO($dsn, $user, $pass);
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            $attributeType = new ObjectType([
-                'name' => 'Attribute',
-                'fields' => [
-                    'name' => ['type' => Type::string()],
-                    'value' => ['type' => Type::string()],
-                    'type' => ['type' => Type::string()],
-                ],
-            ]);
+$attributeType = new ObjectType([
+    'name' => 'Attribute',
+    'fields' => [
+        'name' => ['type' => Type::string()],
+        'value' => ['type' => Type::string()],
+        'displayValue' => ['type' => Type::string()], // ✅ Add this line
+        'type' => ['type' => Type::string()],
+    ],
+]);
+
 
             $productType = null;
 
@@ -210,16 +212,18 @@ class GraphQL
         $finalProducts = [];
 
         foreach ($products as $product) {
-            $attrStmt = $db->prepare("
-                SELECT 
-                    a.name AS name,
-                    ai.value AS value,
-                    a.type AS type
-                FROM product_attributes pa
-                JOIN attributes a ON pa.attribute_id = a.id
-                LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
-                WHERE pa.product_id = ?
-            ");
+ $attrStmt = $db->prepare("
+    SELECT 
+        a.name AS name,
+        ai.value AS value,
+        ai.id AS displayValue,
+        a.type AS type
+    FROM product_attributes pa
+    JOIN attributes a ON pa.attribute_id = a.id
+    LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
+    WHERE pa.product_id = ?
+");
+
             $attrStmt->execute([$product['id']]);
             $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
 
