@@ -26,24 +26,12 @@ class GraphQL
             $db = new PDO($dsn, $user, $pass);
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            // Attribute item type
-            $attributeItemType = new ObjectType([
-                'name' => 'AttributeItem',
+            $attributeType = new ObjectType([
+                'name' => 'Attribute',
                 'fields' => [
-                    'id' => ['type' => Type::string()],
-                    'displayValue' => ['type' => Type::string()],
-                    'value' => ['type' => Type::string()],
-                ],
-            ]);
-
-            // Attribute set type
-            $attributeSetType = new ObjectType([
-                'name' => 'AttributeSet',
-                'fields' => [
-                    'id' => ['type' => Type::string()],
                     'name' => ['type' => Type::string()],
+                    'value' => ['type' => Type::string()],
                     'type' => ['type' => Type::string()],
-                    'items' => ['type' => Type::listOf($attributeItemType)],
                 ],
             ]);
 
@@ -51,7 +39,7 @@ class GraphQL
 
             $productType = new ObjectType([
                 'name' => 'Product',
-                'fields' => function () use (&$productType, $attributeSetType) {
+                'fields' => function () use (&$productType, $attributeType) {
                     return [
                         'id' => ['type' => Type::string()],
                         'sku' => ['type' => Type::string()],
@@ -64,7 +52,7 @@ class GraphQL
                         'in_stock' => ['type' => Type::int()],
                         'description' => ['type' => Type::string()],
                         'gallery' => ['type' => Type::listOf(Type::string())],
-                        'attributes' => ['type' => Type::listOf($attributeSetType)],
+                        'attributes' => ['type' => Type::listOf($attributeType)],
                         'image' => ['type' => Type::string()],
                     ];
                 },
@@ -184,7 +172,7 @@ class GraphQL
             echo json_encode($output);
         } catch (Throwable $e) {
             http_response_code(500);
-            echo json_encode(['error' => ['message' => $e->getMessage()]]);
+            echo json_encode(['error' => ['message' => $e->getMessage()]]); 
         }
     }
 
@@ -224,39 +212,16 @@ class GraphQL
         foreach ($products as $product) {
             $attrStmt = $db->prepare("
                 SELECT 
-                    a.id AS attr_id,
-                    a.name AS attr_name,
-                    a.type AS attr_type,
-                    ai.id AS item_id,
-                    ai.display_value,
-                    ai.value
+                    a.name AS name,
+                    ai.value AS value,
+                    a.type AS type
                 FROM product_attributes pa
                 JOIN attributes a ON pa.attribute_id = a.id
-                LEFT JOIN attribute_items ai ON a.id = ai.attribute_id
+                LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
                 WHERE pa.product_id = ?
             ");
             $attrStmt->execute([$product['id']]);
-            $rawAttributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
-
-            $attributes = [];
-            foreach ($rawAttributes as $row) {
-                $id = $row['attr_id'];
-                if (!isset($attributes[$id])) {
-                    $attributes[$id] = [
-                        'id' => $id,
-                        'name' => $row['attr_name'],
-                        'type' => $row['attr_type'],
-                        'items' => [],
-                    ];
-                }
-                if ($row['item_id']) {
-                    $attributes[$id]['items'][] = [
-                        'id' => $row['item_id'],
-                        'displayValue' => $row['display_value'],
-                        'value' => $row['value'],
-                    ];
-                }
-            }
+            $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
 
             $galleryStmt = $db->prepare("
                 SELECT image_url FROM product_gallery WHERE product_id = ?
@@ -277,7 +242,7 @@ class GraphQL
                 'in_stock' => (int)$product['in_stock'],
                 'description' => $product['description'] ?? '',
                 'gallery' => $galleryImages ?: [],
-                'attributes' => array_values($attributes),
+                'attributes' => $attributes,
             ];
         }
 
