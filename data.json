@@ -229,7 +229,7 @@
             {
                 "id": "xbox-series-s",
                 "name": "Xbox Series S 512GB",
-                "inStock": true,
+                "inStock": false,
                 "gallery": [
                     "https://images-na.ssl-images-amazon.com/images/I/71vPCX0bS-L._SL1500_.jpg",
                     "https://images-na.ssl-images-amazon.com/images/I/71q7JTbRTpL._SL1500_.jpg",
@@ -401,7 +401,7 @@
             {
                 "id": "apple-iphone-12-pro",
                 "name": "iPhone 12 Pro",
-                "inStock": false,
+                "inStock": true,
                 "gallery": [
                     "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-12-pro-family-hero?wid=940&amp;hei=1112&amp;fmt=jpeg&amp;qlt=80&amp;.v=1604021663000"
                 ],
@@ -484,7 +484,7 @@
             {
                 "id": "apple-airpods-pro",
                 "name": "AirPods Pro",
-                "inStock": true,
+                "inStock": false,
                 "gallery": [
                     "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MWP22?wid=572&hei=572&fmt=jpeg&qlt=95&.v=1591634795000"
                 ],
