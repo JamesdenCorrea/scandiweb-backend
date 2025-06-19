@@ -125,6 +125,19 @@ $attributeType = new ObjectType([
             $mutationType = new ObjectType([
                 'name' => 'Mutation',
                 'fields' => [
+                    'deleteProducts' => [
+    'type' => Type::listOf(Type::string()),
+    'args' => [
+        'ids' => Type::nonNull(Type::listOf(Type::nonNull(Type::string())))
+    ],
+    'resolve' => function ($root, $args) use ($db) {
+        $placeholders = implode(',', array_fill(0, count($args['ids']), '?'));
+        $stmt = $db->prepare("DELETE FROM products WHERE id IN ($placeholders)");
+        $stmt->execute($args['ids']);
+        return $args['ids']; // Return deleted IDs
+    },
+],
+
                     'createOrder' => [
                         'type' => $orderType,
                         'args' => [
