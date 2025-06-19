@@ -26,19 +26,17 @@ class GraphQL
             $db = new PDO($dsn, $user, $pass);
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-$attributeType = new ObjectType([
-    'name' => 'Attribute',
-    'fields' => [
-        'name' => ['type' => Type::string()],
-        'value' => ['type' => Type::string()],
-        'displayValue' => ['type' => Type::string()], // ✅ Add this line
-        'type' => ['type' => Type::string()],
-    ],
-]);
-
+            $attributeType = new ObjectType([
+                'name' => 'Attribute',
+                'fields' => [
+                    'name' => ['type' => Type::string()],
+                    'value' => ['type' => Type::string()],
+                    'displayValue' => ['type' => Type::string()],
+                    'type' => ['type' => Type::string()],
+                ],
+            ]);
 
             $productType = null;
-
             $productType = new ObjectType([
                 'name' => 'Product',
                 'fields' => function () use (&$productType, $attributeType) {
@@ -74,18 +72,17 @@ $attributeType = new ObjectType([
                         'args' => [
                             'id' => Type::nonNull(Type::string()),
                         ],
-'resolve' => function ($root, $args) use ($db) {
-    return self::fetchProductById($db, $args['id']);
-}
-
+                        'resolve' => function ($root, $args) use ($db) {
+                            return self::fetchProductById($db, $args['id']);
+                        },
                     ],
                     'categories' => [
                         'type' => Type::listOf(Type::string()),
                         'resolve' => function () use ($db) {
                             $stmt = $db->query("SELECT name FROM categories");
                             return $stmt->fetchAll(PDO::FETCH_COLUMN);
-                        }
-                    ]
+                        },
+                    ],
                 ],
             ]);
 
@@ -126,18 +123,17 @@ $attributeType = new ObjectType([
                 'name' => 'Mutation',
                 'fields' => [
                     'deleteProducts' => [
-    'type' => Type::listOf(Type::string()),
-    'args' => [
-        'ids' => Type::nonNull(Type::listOf(Type::nonNull(Type::string())))
-    ],
-    'resolve' => function ($root, $args) use ($db) {
-        $placeholders = implode(',', array_fill(0, count($args['ids']), '?'));
-        $stmt = $db->prepare("DELETE FROM products WHERE id IN ($placeholders)");
-        $stmt->execute($args['ids']);
-        return $args['ids']; // Return deleted IDs
-    },
-],
-
+                        'type' => Type::listOf(Type::string()),
+                        'args' => [
+                            'ids' => Type::nonNull(Type::listOf(Type::nonNull(Type::string()))),
+                        ],
+                        'resolve' => function ($root, $args) use ($db) {
+                            $placeholders = implode(',', array_fill(0, count($args['ids']), '?'));
+                            $stmt = $db->prepare("DELETE FROM products WHERE id IN ($placeholders)");
+                            $stmt->execute($args['ids']);
+                            return $args['ids'];
+                        },
+                    ],
                     'createOrder' => [
                         'type' => $orderType,
                         'args' => [
@@ -184,7 +180,7 @@ $attributeType = new ObjectType([
             echo json_encode($output);
         } catch (Throwable $e) {
             http_response_code(500);
-            echo json_encode(['error' => ['message' => $e->getMessage()]]); 
+            echo json_encode(['error' => ['message' => $e->getMessage()]]);
         }
     }
 
@@ -222,24 +218,21 @@ $attributeType = new ObjectType([
         $finalProducts = [];
 
         foreach ($products as $product) {
- $attrStmt = $db->prepare("
-    SELECT 
-        a.name AS name,
-        ai.value AS value,
-        ai.id AS displayValue,
-        a.type AS type
-    FROM product_attributes pa
-    JOIN attributes a ON pa.attribute_id = a.id
-    LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
-    WHERE pa.product_id = ?
-");
-
+            $attrStmt = $db->prepare("
+                SELECT 
+                    a.name AS name,
+                    ai.value AS value,
+                    ai.id AS displayValue,
+                    a.type AS type
+                FROM product_attributes pa
+                JOIN attributes a ON pa.attribute_id = a.id
+                LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
+                WHERE pa.product_id = ?
+            ");
             $attrStmt->execute([$product['id']]);
             $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $galleryStmt = $db->prepare("
-                SELECT image_url FROM product_gallery WHERE product_id = ?
-            ");
+            $galleryStmt = $db->prepare("SELECT image_url FROM product_gallery WHERE product_id = ?");
             $galleryStmt->execute([$product['id']]);
             $galleryImages = $galleryStmt->fetchAll(PDO::FETCH_COLUMN);
 
@@ -262,79 +255,73 @@ $attributeType = new ObjectType([
 
         return $finalProducts;
     }
+
     static private function fetchProductById(PDO $db, string $id): ?array
-{
-    $stmt = $db->prepare("
-        SELECT 
-            p.id, 
-            p.sku, 
-            p.name, 
-            pr.amount AS price,
-            p.product_type AS type,
-            c.name AS category,
-            b.name AS brand,
-            p.in_stock,
-            p.description,
-            (
-                SELECT image_url 
-                FROM product_gallery 
-                WHERE product_id = p.id 
-                LIMIT 1
-            ) AS image_url
-        FROM products p
-        JOIN categories c ON p.category_id = c.id
-        LEFT JOIN brands b ON p.brand_id = b.id
-        LEFT JOIN (
-            SELECT product_id, MAX(amount) AS amount 
-            FROM prices 
-            GROUP BY product_id
-        ) pr ON p.id = pr.product_id
-        WHERE p.id = ?
-        LIMIT 1
-    ");
+    {
+        $stmt = $db->prepare("
+            SELECT 
+                p.id, 
+                p.sku, 
+                p.name, 
+                pr.amount AS price,
+                p.product_type AS type,
+                c.name AS category,
+                b.name AS brand,
+                p.in_stock,
+                p.description,
+                (
+                    SELECT image_url 
+                    FROM product_gallery 
+                    WHERE product_id = p.id 
+                    LIMIT 1
+                ) AS image_url
+            FROM products p
+            JOIN categories c ON p.category_id = c.id
+            LEFT JOIN brands b ON p.brand_id = b.id
+            LEFT JOIN (
+                SELECT product_id, MAX(amount) AS amount 
+                FROM prices 
+                GROUP BY product_id
+            ) pr ON p.id = pr.product_id
+            WHERE p.id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$id]);
+        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$product) return null;
 
-    $stmt->execute([$id]);
-    $product = $stmt->fetch(PDO::FETCH_ASSOC);
+        $attrStmt = $db->prepare("
+            SELECT 
+                a.name AS name,
+                ai.value AS value,
+                ai.id AS displayValue,
+                a.type AS type
+            FROM product_attributes pa
+            JOIN attributes a ON pa.attribute_id = a.id
+            LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
+            WHERE pa.product_id = ?
+        ");
+        $attrStmt->execute([$product['id']]);
+        $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    if (!$product) return null;
+        $galleryStmt = $db->prepare("SELECT image_url FROM product_gallery WHERE product_id = ?");
+        $galleryStmt->execute([$product['id']]);
+        $galleryImages = $galleryStmt->fetchAll(PDO::FETCH_COLUMN);
 
-    // Fetch attributes
-    $attrStmt = $db->prepare("
-        SELECT 
-            a.name AS name,
-            ai.value AS value,
-            ai.id AS displayValue,
-            a.type AS type
-        FROM product_attributes pa
-        JOIN attributes a ON pa.attribute_id = a.id
-        LEFT JOIN attribute_items ai ON pa.attribute_id = ai.attribute_id
-        WHERE pa.product_id = ?
-    ");
-    $attrStmt->execute([$product['id']]);
-    $attributes = $attrStmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Fetch gallery
-    $galleryStmt = $db->prepare("
-        SELECT image_url FROM product_gallery WHERE product_id = ?
-    ");
-    $galleryStmt->execute([$product['id']]);
-    $galleryImages = $galleryStmt->fetchAll(PDO::FETCH_COLUMN);
-
-    return [
-        'id' => $product['id'],
-        'sku' => $product['sku'],
-        'name' => $product['name'],
-        'price' => (float)$product['price'],
-        'type' => $product['type'],
-        'category' => $product['category'],
-        'brand' => $product['brand'] ?? '',
-        'image_url' => $product['image_url'] ?? '',
-        'image' => $galleryImages[0] ?? ($product['image_url'] ?? ''),
-        'in_stock' => (int)$product['in_stock'],
-        'description' => $product['description'] ?? '',
-        'gallery' => $galleryImages ?: [],
-        'attributes' => $attributes,
-    ];
-}
-
+        return [
+            'id' => $product['id'],
+            'sku' => $product['sku'],
+            'name' => $product['name'],
+            'price' => (float)$product['price'],
+            'type' => $product['type'],
+            'category' => $product['category'],
+            'brand' => $product['brand'] ?? '',
+            'image_url' => $product['image_url'] ?? '',
+            'image' => $galleryImages[0] ?? ($product['image_url'] ?? ''),
+            'in_stock' => (int)$product['in_stock'],
+            'description' => $product['description'] ?? '',
+            'gallery' => $galleryImages ?: [],
+            'attributes' => $attributes,
+        ];
+    }
 }
