@@ -3,6 +3,7 @@
 namespace Jamesdencorrea\ScandiwebBackend\Controller;
 
 use GraphQL\GraphQL as GraphQLBase;
+use GraphQL\Error\DebugFlag;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\Type;
@@ -280,11 +281,10 @@ class GraphQL
             $query = $input['query'];
             $variableValues = $input['variables'] ?? null;
 
-            $result = GraphQLBase::executeQuery($schema, $query, null, null, $variableValues);
-            $output = $result->toArray();
-
-            header('Content-Type: application/json');
-            echo json_encode($output);
+$result = GraphQLBase::executeQuery($schema, $query, null, null, $variableValues);
+$output = $result->toArray(DebugFlag::INCLUDE_DEBUG_MESSAGE | DebugFlag::INCLUDE_TRACE);
+header('Content-Type: application/json');
+echo json_encode($output);
         } catch (Throwable $e) {
             http_response_code(500);
             http_response_code(500);
