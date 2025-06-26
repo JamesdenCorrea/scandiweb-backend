@@ -159,13 +159,19 @@ class GraphQL
                 
                 // Insert basic product info
 // Insert basic product info
+// Original code:
+// Generate unique ID for the product (must be unique)
+$productId = uniqid('prod_', true);
+
+// Insert product with explicit id
 $stmt = $db->prepare("
     INSERT INTO products 
-    (sku, name, product_type, category_id, description, brand_id, in_stock) 
-    VALUES (?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, NULL, 1)
+    (id, sku, name, product_type, category_id, description, brand_id, in_stock) 
+    VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, NULL, 1)
 ");
 
 $stmt->execute([
+    $productId,
     $input['sku'],
     $input['name'],
     $input['productType'],
@@ -173,8 +179,7 @@ $stmt->execute([
     $input['description'] ?? ''
 ]);
 
-// Get the auto-generated product ID after insert
-$productId = $db->lastInsertId();
+
 
 // Now use $productId instead of $input['id'] everywhere below:
 $priceStmt = $db->prepare("INSERT INTO prices (product_id, amount) VALUES (?, ?)");
