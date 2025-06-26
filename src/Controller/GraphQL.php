@@ -158,19 +158,21 @@ class GraphQL
                 $input = $args['input'];
                 
                 // Insert basic product info
-                $stmt = $db->prepare("
-                    INSERT INTO products 
-                    (id, sku, name, product_type, category_id, description, in_stock) 
-                    VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, 1)
-                ");
-                $stmt->execute([
-                    $input['id'],
-                    $input['sku'],
-                    $input['name'],
-                    $input['productType'],
-                    $input['category'],
-                    $input['description'] ?? ''
-                ]);
+$stmt = $db->prepare("
+    INSERT INTO products 
+    (id, sku, name, product_type, category_id, description, brand_id, in_stock) 
+    VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, NULL, 1)
+");
+
+$stmt->execute([
+    $input['id'],
+    $input['sku'],
+    $input['name'],
+    $input['productType'],
+    $input['category'],
+    $input['description'] ?? ''
+]);
+
                 
                 // Insert price
                 $priceStmt = $db->prepare("INSERT INTO prices (product_id, amount) VALUES (?, ?)");
