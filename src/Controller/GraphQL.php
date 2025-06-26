@@ -158,14 +158,14 @@ class GraphQL
                 $input = $args['input'];
                 
                 // Insert basic product info
+// Insert basic product info
 $stmt = $db->prepare("
     INSERT INTO products 
-    (id, sku, name, product_type, category_id, description, brand_id, in_stock) 
-    VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, NULL, 1)
+    (sku, name, product_type, category_id, description, brand_id, in_stock) 
+    VALUES (?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, NULL, 1)
 ");
 
 $stmt->execute([
-    $input['id'],
     $input['sku'],
     $input['name'],
     $input['productType'],
@@ -173,37 +173,39 @@ $stmt->execute([
     $input['description'] ?? ''
 ]);
 
-                
-                // Insert price
-                $priceStmt = $db->prepare("INSERT INTO prices (product_id, amount) VALUES (?, ?)");
-                $priceStmt->execute([$input['id'], $input['price']]);
-                
-                // Insert type-specific attributes
-                if ($input['productType'] === 'DVD' && isset($input['size'])) {
-                    $sizeStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
-                                           VALUES (?, (SELECT id FROM attributes WHERE name = 'size'), ?)");
-                    $sizeStmt->execute([$input['id'], $input['size']]);
-                } 
+// Get the auto-generated product ID after insert
+$productId = $db->lastInsertId();
+
+// Now use $productId instead of $input['id'] everywhere below:
+$priceStmt = $db->prepare("INSERT INTO prices (product_id, amount) VALUES (?, ?)");
+$priceStmt->execute([$productId, $input['price']]);
+
+// And similarly for other inserts:
+if ($input['productType'] === 'DVD' && isset($input['size'])) {
+    $sizeStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                               VALUES (?, (SELECT id FROM attributes WHERE name = 'size'), ?)");
+    $sizeStmt->execute([$productId, $input['size']]);
+} 
                 elseif ($input['productType'] === 'Book' && isset($input['weight'])) {
                     $weightStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                              VALUES (?, (SELECT id FROM attributes WHERE name = 'weight'), ?)");
-                    $weightStmt->execute([$input['id'], $input['weight']]);
+                    $weightStmt->execute([$productId, $input['weight']]);
                 } 
                 elseif ($input['productType'] === 'Furniture') {
                     if (isset($input['height'])) {
                         $heightStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                    VALUES (?, (SELECT id FROM attributes WHERE name = 'height'), ?)");
-                        $heightStmt->execute([$input['id'], $input['height']]);
+                        $heightStmt->execute([$productId, $input['height']]);
                     }
                     if (isset($input['width'])) {
                         $widthStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                 VALUES (?, (SELECT id FROM attributes WHERE name = 'width'), ?)");
-                        $widthStmt->execute([$input['id'], $input['width']]);
+                        $widthStmt->execute([$productId, $input['width']]);
                     }
                     if (isset($input['length'])) {
                         $lengthStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                  VALUES (?, (SELECT id FROM attributes WHERE name = 'length'), ?)");
-                        $lengthStmt->execute([$input['id'], $input['length']]);
+                        $lengthStmt->execute([$productId, $input['length']]);
                     }
                 }
                 
@@ -225,11 +227,11 @@ $stmt->execute([
                         // Insert product attribute
                         $attrStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                VALUES (?, ?, ?)");
-                        $attrStmt->execute([$input['id'], $attrId, $attribute['value']]);
+                        $attrStmt->execute([$productId, $attrId, $attribute['value']]);
                     }
                 }
                 
-                return self::fetchProductById($db, $input['id']);
+                return self::fetchProductById($db, $productId);
             },
         ],
         'deleteProducts' => [
