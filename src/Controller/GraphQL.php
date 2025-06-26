@@ -3,7 +3,6 @@
 namespace Jamesdencorrea\ScandiwebBackend\Controller;
 
 use GraphQL\GraphQL as GraphQLBase;
-use GraphQL\Error\DebugFlag;
 use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\Type;
@@ -46,7 +45,7 @@ class GraphQL
                         'sku' => ['type' => Type::string()],
                         'name' => ['type' => Type::string()],
                         'price' => ['type' => Type::float()],
-                        'productType' => ['type' => Type::string()],
+                        'type' => ['type' => Type::string()],
                         'category' => ['type' => Type::string()],
                         'brand' => ['type' => Type::string()],
                         'image_url' => ['type' => Type::string()],
@@ -158,62 +157,50 @@ class GraphQL
                 $input = $args['input'];
                 
                 // Insert basic product info
-// Insert basic product info
-// Original code:
-// Generate unique ID for the product (must be unique)
-$productId = uniqid('prod_', true);
-
-// Insert product with explicit id
-$stmt = $db->prepare("
-    INSERT INTO products 
-    (id, sku, name, product_type, category_id, description, brand_id, in_stock) 
-    VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, NULL, 1)
-");
-
-$stmt->execute([
-    $productId,
-    $input['sku'],
-    $input['name'],
-    $input['productType'],
-    $input['category'],
-    $input['description'] ?? ''
-]);
-
-
-
-// Now use $productId instead of $input['id'] everywhere below:
-$currencyLabel = 'USD';
-$currencySymbol = '$';
-
-$priceStmt = $db->prepare("INSERT INTO prices (product_id, amount, currency_label, currency_symbol) VALUES (?, ?, ?, ?)");
-$priceStmt->execute([$productId, $input['price'], $currencyLabel, $currencySymbol]);
-
-// And similarly for other inserts:
-if ($input['productType'] === 'DVD' && isset($input['size'])) {
-    $sizeStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
-                               VALUES (?, (SELECT id FROM attributes WHERE name = 'size'), ?)");
-    $sizeStmt->execute([$productId, $input['size']]);
-} 
+                $stmt = $db->prepare("
+                    INSERT INTO products 
+                    (id, sku, name, product_type, category_id, description, in_stock) 
+                    VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, 1)
+                ");
+                $stmt->execute([
+                    $input['id'],
+                    $input['sku'],
+                    $input['name'],
+                    $input['productType'],
+                    $input['category'],
+                    $input['description'] ?? ''
+                ]);
+                
+                // Insert price
+                $priceStmt = $db->prepare("INSERT INTO prices (product_id, amount) VALUES (?, ?)");
+                $priceStmt->execute([$input['id'], $input['price']]);
+                
+                // Insert type-specific attributes
+                if ($input['productType'] === 'DVD' && isset($input['size'])) {
+                    $sizeStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                                           VALUES (?, (SELECT id FROM attributes WHERE name = 'size'), ?)");
+                    $sizeStmt->execute([$input['id'], $input['size']]);
+                } 
                 elseif ($input['productType'] === 'Book' && isset($input['weight'])) {
                     $weightStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                              VALUES (?, (SELECT id FROM attributes WHERE name = 'weight'), ?)");
-                    $weightStmt->execute([$productId, $input['weight']]);
+                    $weightStmt->execute([$input['id'], $input['weight']]);
                 } 
                 elseif ($input['productType'] === 'Furniture') {
                     if (isset($input['height'])) {
                         $heightStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                    VALUES (?, (SELECT id FROM attributes WHERE name = 'height'), ?)");
-                        $heightStmt->execute([$productId, $input['height']]);
+                        $heightStmt->execute([$input['id'], $input['height']]);
                     }
                     if (isset($input['width'])) {
                         $widthStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                 VALUES (?, (SELECT id FROM attributes WHERE name = 'width'), ?)");
-                        $widthStmt->execute([$productId, $input['width']]);
+                        $widthStmt->execute([$input['id'], $input['width']]);
                     }
                     if (isset($input['length'])) {
                         $lengthStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                  VALUES (?, (SELECT id FROM attributes WHERE name = 'length'), ?)");
-                        $lengthStmt->execute([$productId, $input['length']]);
+                        $lengthStmt->execute([$input['id'], $input['length']]);
                     }
                 }
                 
@@ -235,11 +222,11 @@ if ($input['productType'] === 'DVD' && isset($input['size'])) {
                         // Insert product attribute
                         $attrStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
                                                VALUES (?, ?, ?)");
-                        $attrStmt->execute([$productId, $attrId, $attribute['value']]);
+                        $attrStmt->execute([$input['id'], $attrId, $attribute['value']]);
                     }
                 }
                 
-                return self::fetchProductById($db, $productId);
+                return self::fetchProductById($db, $input['id']);
             },
         ],
         'deleteProducts' => [
@@ -293,22 +280,14 @@ if ($input['productType'] === 'DVD' && isset($input['size'])) {
             $query = $input['query'];
             $variableValues = $input['variables'] ?? null;
 
-$result = GraphQLBase::executeQuery($schema, $query, null, null, $variableValues);
-$output = $result->toArray(DebugFlag::INCLUDE_DEBUG_MESSAGE | DebugFlag::INCLUDE_TRACE);
-header('Content-Type: application/json');
-echo json_encode($output);
+            $result = GraphQLBase::executeQuery($schema, $query, null, null, $variableValues);
+            $output = $result->toArray();
+
+            header('Content-Type: application/json');
+            echo json_encode($output);
         } catch (Throwable $e) {
             http_response_code(500);
-            http_response_code(500);
-echo json_encode([
-    'error' => [
-        'message' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-        'trace' => $e->getTraceAsString()
-    ]
-]);
-
+            echo json_encode(['error' => ['message' => $e->getMessage()]]);
         }
     }
 
@@ -369,7 +348,7 @@ echo json_encode([
                 'sku' => $product['sku'],
                 'name' => $product['name'],
                 'price' => (float)$product['price'],
-                'productType' => $product['type'],
+                'type' => $product['type'],
                 'category' => $product['category'],
                 'brand' => $product['brand'] ?? '',
                 'image_url' => $product['image_url'] ?? '',
@@ -441,7 +420,7 @@ echo json_encode([
             'sku' => $product['sku'],
             'name' => $product['name'],
             'price' => (float)$product['price'],
-            'productType' => $product['type'],
+            'type' => $product['type'],
             'category' => $product['category'],
             'brand' => $product['brand'] ?? '',
             'image_url' => $product['image_url'] ?? '',
