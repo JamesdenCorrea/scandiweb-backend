@@ -45,7 +45,7 @@ class GraphQL
                         'sku' => ['type' => Type::string()],
                         'name' => ['type' => Type::string()],
                         'price' => ['type' => Type::float()],
-                        'type' => ['type' => Type::string()],
+                        'productType' => ['type' => Type::string()],
                         'category' => ['type' => Type::string()],
                         'brand' => ['type' => Type::string()],
                         'image_url' => ['type' => Type::string()],
@@ -119,37 +119,144 @@ class GraphQL
                 ],
             ]);
 
-            $mutationType = new ObjectType([
-                'name' => 'Mutation',
-                'fields' => [
-                    'deleteProducts' => [
-                        'type' => Type::listOf(Type::string()),
-                        'args' => [
-                            'ids' => Type::nonNull(Type::listOf(Type::nonNull(Type::string()))),
+           $mutationType = new ObjectType([
+    'name' => 'Mutation',
+    'fields' => [
+        'addProduct' => [
+            'type' => $productType,
+            'args' => [
+                'input' => [
+                    'type' => new InputObjectType([
+                        'name' => 'ProductInput',
+                        'fields' => [
+                            'id' => ['type' => Type::string()],
+                            'sku' => ['type' => Type::nonNull(Type::string())],
+                            'name' => ['type' => Type::nonNull(Type::string())],
+                            'price' => ['type' => Type::nonNull(Type::float())],
+                            'productType' => ['type' => Type::nonNull(Type::string())],
+                            'category' => ['type' => Type::nonNull(Type::string())],
+                            'description' => ['type' => Type::string()],
+                            'size' => ['type' => Type::string()],
+                            'weight' => ['type' => Type::string()],
+                            'height' => ['type' => Type::string()],
+                            'width' => ['type' => Type::string()],
+                            'length' => ['type' => Type::string()],
+                            'attributes' => ['type' => Type::listOf(new InputObjectType([
+                                'name' => 'AttributeInput',
+                                'fields' => [
+                                    'name' => ['type' => Type::string()],
+                                    'value' => ['type' => Type::string()],
+                                    'type' => ['type' => Type::string()],
+                                ],
+                            ]))],
                         ],
-                        'resolve' => function ($root, $args) use ($db) {
-                            $placeholders = implode(',', array_fill(0, count($args['ids']), '?'));
-                            $stmt = $db->prepare("DELETE FROM products WHERE id IN ($placeholders)");
-                            $stmt->execute($args['ids']);
-                            return $args['ids'];
-                        },
-                    ],
-                    'createOrder' => [
-                        'type' => $orderType,
-                        'args' => [
-                            'input' => ['type' => Type::nonNull($orderInputType)],
-                        ],
-                        'resolve' => function ($root, $args) {
-                            $input = $args['input'];
-                            return [
-                                'id' => uniqid('order_'),
-                                'total' => $input['total'],
-                                'items' => $input['items'],
-                            ];
-                        },
-                    ],
+                    ]),
                 ],
-            ]);
+            ],
+            'resolve' => function ($root, $args) use ($db) {
+                $input = $args['input'];
+                
+                // Insert basic product info
+                $stmt = $db->prepare("
+                    INSERT INTO products 
+                    (id, sku, name, product_type, category_id, description, in_stock) 
+                    VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?, 1)
+                ");
+                $stmt->execute([
+                    $input['id'],
+                    $input['sku'],
+                    $input['name'],
+                    $input['productType'],
+                    $input['category'],
+                    $input['description'] ?? ''
+                ]);
+                
+                // Insert price
+                $priceStmt = $db->prepare("INSERT INTO prices (product_id, amount) VALUES (?, ?)");
+                $priceStmt->execute([$input['id'], $input['price']]);
+                
+                // Insert type-specific attributes
+                if ($input['productType'] === 'DVD' && isset($input['size'])) {
+                    $sizeStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                                           VALUES (?, (SELECT id FROM attributes WHERE name = 'size'), ?)");
+                    $sizeStmt->execute([$input['id'], $input['size']]);
+                } 
+                elseif ($input['productType'] === 'Book' && isset($input['weight'])) {
+                    $weightStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                                             VALUES (?, (SELECT id FROM attributes WHERE name = 'weight'), ?)");
+                    $weightStmt->execute([$input['id'], $input['weight']]);
+                } 
+                elseif ($input['productType'] === 'Furniture') {
+                    if (isset($input['height'])) {
+                        $heightStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                                                   VALUES (?, (SELECT id FROM attributes WHERE name = 'height'), ?)");
+                        $heightStmt->execute([$input['id'], $input['height']]);
+                    }
+                    if (isset($input['width'])) {
+                        $widthStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                                                VALUES (?, (SELECT id FROM attributes WHERE name = 'width'), ?)");
+                        $widthStmt->execute([$input['id'], $input['width']]);
+                    }
+                    if (isset($input['length'])) {
+                        $lengthStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                                                 VALUES (?, (SELECT id FROM attributes WHERE name = 'length'), ?)");
+                        $lengthStmt->execute([$input['id'], $input['length']]);
+                    }
+                }
+                
+                // Insert custom attributes
+                if (!empty($input['attributes'])) {
+                    foreach ($input['attributes'] as $attribute) {
+                        // First check if attribute exists
+                        $attrCheck = $db->prepare("SELECT id FROM attributes WHERE name = ?");
+                        $attrCheck->execute([$attribute['name']]);
+                        $attrId = $attrCheck->fetchColumn();
+                        
+                        if (!$attrId) {
+                            // Create new attribute if it doesn't exist
+                            $attrInsert = $db->prepare("INSERT INTO attributes (name, type) VALUES (?, ?)");
+                            $attrInsert->execute([$attribute['name'], $attribute['type'] ?? 'text']);
+                            $attrId = $db->lastInsertId();
+                        }
+                        
+                        // Insert product attribute
+                        $attrStmt = $db->prepare("INSERT INTO product_attributes (product_id, attribute_id, value) 
+                                               VALUES (?, ?, ?)");
+                        $attrStmt->execute([$input['id'], $attrId, $attribute['value']]);
+                    }
+                }
+                
+                return self::fetchProductById($db, $input['id']);
+            },
+        ],
+        'deleteProducts' => [
+            'type' => Type::listOf(Type::string()),
+            'args' => [
+                'ids' => Type::nonNull(Type::listOf(Type::nonNull(Type::string()))),
+            ],
+            'resolve' => function ($root, $args) use ($db) {
+                $placeholders = implode(',', array_fill(0, count($args['ids']), '?'));
+                $stmt = $db->prepare("DELETE FROM products WHERE id IN ($placeholders)");
+                $stmt->execute($args['ids']);
+                return $args['ids'];
+            },
+        ],
+        'createOrder' => [
+            'type' => $orderType,
+            'args' => [
+                'input' => ['type' => Type::nonNull($orderInputType)],
+            ],
+            'resolve' => function ($root, $args) {
+                $input = $args['input'];
+                return [
+                    'id' => uniqid('order_'),
+                    'total' => $input['total'],
+                    'items' => $input['items'],
+                ];
+            },
+        ],
+    ],
+]);
 
             $schema = new Schema([
                 'query' => $queryType,
