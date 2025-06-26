@@ -19,4 +19,5 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Jamesdencorrea\ScandiwebBackend\Controller\GraphQL;
 
-GraphQL::handle();
+// ✅ OUTPUT the GraphQL result
+echo GraphQL::handle();
