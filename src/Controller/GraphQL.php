@@ -182,8 +182,11 @@ $stmt->execute([
 
 
 // Now use $productId instead of $input['id'] everywhere below:
-$priceStmt = $db->prepare("INSERT INTO prices (product_id, amount) VALUES (?, ?)");
-$priceStmt->execute([$productId, $input['price']]);
+$currencyLabel = 'USD';
+$currencySymbol = '$';
+
+$priceStmt = $db->prepare("INSERT INTO prices (product_id, amount, currency_label, currency_symbol) VALUES (?, ?, ?, ?)");
+$priceStmt->execute([$productId, $input['price'], $currencyLabel, $currencySymbol]);
 
 // And similarly for other inserts:
 if ($input['productType'] === 'DVD' && isset($input['size'])) {
