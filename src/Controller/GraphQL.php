@@ -287,7 +287,16 @@ class GraphQL
             echo json_encode($output);
         } catch (Throwable $e) {
             http_response_code(500);
-            echo json_encode(['error' => ['message' => $e->getMessage()]]);
+            http_response_code(500);
+echo json_encode([
+    'error' => [
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+        'trace' => $e->getTraceAsString()
+    ]
+]);
+
         }
     }
 
