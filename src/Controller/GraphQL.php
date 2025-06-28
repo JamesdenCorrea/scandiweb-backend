@@ -169,11 +169,16 @@ switch ($input['productType']) {
         }
         break;
 
-    case 'Furniture':
-        if (empty($input['height']) || empty($input['width']) || empty($input['length'])) {
-            throw new \Exception("Height, Width, and Length are required for Furniture.");
-        }
-        break;
+case 'Furniture':
+    if (
+        !isset($input['height']) || $input['height'] === '' ||
+        !isset($input['width']) || $input['width'] === '' ||
+        !isset($input['length']) || $input['length'] === ''
+    ) {
+        throw new \Exception("Height, Width, and Length are required for Furniture.");
+    }
+    break;
+
 }
 
                 // Insert basic product info
