@@ -155,32 +155,7 @@ class GraphQL
             ],
             'resolve' => function ($root, $args) use ($db) {
                 $input = $args['input'];
-                // Manual validation for required fields based on productType
-switch ($input['productType']) {
-    case 'DVD':
-        if (empty($input['size'])) {
-            throw new \Exception("Size is required for DVD.");
-        }
-        break;
-
-    case 'Book':
-        if (empty($input['weight'])) {
-            throw new \Exception("Weight is required for Book.");
-        }
-        break;
-
-case 'Furniture':
-    if (
-        !isset($input['height']) || $input['height'] === '' ||
-        !isset($input['width']) || $input['width'] === '' ||
-        !isset($input['length']) || $input['length'] === ''
-    ) {
-        throw new \Exception("Height, Width, and Length are required for Furniture.");
-    }
-    break;
-
-}
-
+                
                 // Insert basic product info
                 $stmt = $db->prepare("
                     INSERT INTO products 
@@ -260,7 +235,6 @@ case 'Furniture':
                 'ids' => Type::nonNull(Type::listOf(Type::nonNull(Type::string()))),
             ],
             'resolve' => function ($root, $args) use ($db) {
-                
                 $placeholders = implode(',', array_fill(0, count($args['ids']), '?'));
                 $stmt = $db->prepare("DELETE FROM products WHERE id IN ($placeholders)");
                 $stmt->execute($args['ids']);
